@@ -13,7 +13,33 @@ var paddleX = (canvas.width - paddleWidth) / 2;
 // pressed buttons
 var rightPressed = false;
 var leftPressed = false;
-
+//brick field
+var brickRowCount = 3;
+var brickColumnCount = 5;
+var brickWidth = 75;
+var brickHeight = 20;
+var brickPadding = 10;
+var brickOffsetTop = 30;
+var brickOffsetLeft = 30;
+// bricks two dimensional array
+var bricks = [];
+for (c = 0; c < brickColumnCount; c++) {
+   bricks[c] = [];
+   for (r = 0; r < brickRowCount; r++) {
+      bricks[c][r] = {
+         x: 0,
+         y: 0,
+         status: 1
+      };
+   }
+}
+var score = 0;
+var lives = 3;
+// events
+document.addEventListener('mousemove', mouseMoveHandler, false);
+// listen for key presses
+document.addEventListener('keydown', keyDownHandler, false);
+document.addEventListener('keyup', keyUpHandler, false);
 
 function drawPaddle() {
    ctx.beginPath();
@@ -22,6 +48,47 @@ function drawPaddle() {
    ctx.fill();
    ctx.closePath();
 }
+
+function mouseMoveHandler(e) {
+   var relativeX = e.clientX - canvas.offsetLeft;
+   if (relativeX > 0 && relativeX < canvas.width) {
+      paddleX = relativeX - paddleWidth / 2;
+   }
+}
+
+function drawBricks() {
+   for (var c = 0; c < brickColumnCount; c++) {
+      for (var r = 0; r < brickRowCount; r++) {
+         // check if status of brick is 1
+         if (bricks[c][r].status == 1) {
+            // calculate x & y position of each brick
+            var brickX = (c * (brickWidth + brickPadding)) + brickOffsetLeft;
+            var brickY = (r * (brickHeight + brickPadding)) + brickOffsetTop;
+            bricks[c][r].x = brickX;
+            bricks[c][r].y = brickY;
+            // draw a brick
+            ctx.beginPath();
+            ctx.rect(brickX, brickY, brickWidth, brickHeight);
+            ctx.fillStyle = "#0095DD";
+            ctx.fill();
+            ctx.closePath();
+         }
+      }
+   }
+}
+// create & update the score
+function drawScore() {
+   ctx.font = '16px Arial';
+   ctx.fillStyle = '#0095DD';
+   ctx.fillText('Score: ' + score, 8, 20);
+}
+
+function drawLives() {
+   ctx.font = '16px Arial';
+   ctx.fillStyle = '#0095DD';
+   ctx.fillText("Lives: " + lives, canvas.width - 65, 20);
+}
+
 
 function drawBall() {
    // ball
@@ -34,23 +101,87 @@ function drawBall() {
 
 function draw() {
    // clear ball after each frame
-   // ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+   ctx.clearRect(0, 0, canvas.width, canvas.height);
+   drawBricks();
+   drawScore();
+   drawPaddle();
    drawBall();
+   collisionDetection();
+   drawLives();
    // move ball
    x += dx;
    y += dy;
    // bounce ball of left and right walls
-   if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
+   if (x + dx < ballRadius) {
+      dx = -dx;
+   } else if (x + dx > canvas.width - ballRadius) {
       dx = -dx;
    }
-   // bounce ball of top and bottom walls
-   if (y + dy > canvas.height - ballRadius || y + dy < ballRadius) {
+   // bounce ball of top wall
+   // end game on ball contact with bottom
+   if (y + dy < ballRadius) {
       dy = -dy;
+   } else if (y + dy > canvas.height - ballRadius) {
+      // bounce ball if position is inside paddle rectangle
+      if (x > paddleX && x < paddleX + paddleWidth) {
+         dy = -dy;
+      } else {
+         lives--;
+         if (!lives) {
+            alert('game over');
+            document.location.reload();
+         } else {
+            x = canvas.width / 2;
+            y = canvas.height - 30;
+            dx = 1;
+            dy = -2;
+            // var paddleX = (canvas.width - paddleWidth) / 2;
+         }
+      }
+   }
+   //move paddle
+   if (rightPressed && paddleX < canvas.width - paddleWidth) {
+      paddleX += 7;
+   } else if (leftPressed && paddleX > 0) {
+      paddleX -= 7;
+   }
+   requestAnimationFrame(draw);
+}
+// left button state
+function keyDownHandler(e) {
+   if (e.keyCode == 39) {
+      rightPressed = true;
+   } else if (e.keyCode == 37) {
+      leftPressed = true;
    }
 }
-// listen for key presses
-document.addEventListener('keydown', keyDownHandler, false);
-document.addEventListener('keyup', keyUpHandler, false);
+// right button state
+function keyUpHandler(e) {
+   if (e.keyCode == 39) {
+      rightPressed = false;
+   } else if (e.keyCode == 37) {
+      leftPressed = false;
+   }
+}
+// change direction of ball if found inside of a brick
+function collisionDetection() {
+   for (var c = 0; c < brickColumnCount; c++) {
+      for (var r = 0; r < brickRowCount; r++) {
+         var b = bricks[c][r];
+         // when collision occurs set status of brick to 0
+         if (b.status == 1) {
+            if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
+               dy = -dy;
+               b.status = 0;
+               score++;
+               if (score == brickRowCount * brickColumnCount) {
+                  alert('You Win, Congratulations!');
+                  document.location.reload();
+               }
+            }
+         }
+      }
+   }
+}
 // continously update canvas
-setInterval(draw, 0.01);
+draw();
